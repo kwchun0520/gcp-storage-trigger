@@ -7,6 +7,7 @@ from src.gcp_storage_trigger.google import get_project
 from src.gcp_storage_trigger.bigquery import write_to_table, move_delta_to_table, get_table
 from src.gcp_storage_trigger.storage import download_file
 from cloudevents.http import CloudEvent
+import uuid
 
 
 ##create a function that will be triggered by a GCS event
@@ -18,8 +19,9 @@ def main(cloud_event:CloudEvent) -> Dict[str,str]:
 
     file_path:str = data["name"]
     bucket_name:str = data["bucket"]
+    dataset_name,table_name,_ = file_path.split("/")
 
-    if file_path not in CONFIG.tables:
+    if f"{dataset_name}.{table_name}" not in CONFIG.tables:
         logger.warning(f"Table {file_path} is not in the list of tables to process")
         return {"response":"No action taken"}
       
@@ -28,7 +30,6 @@ def main(cloud_event:CloudEvent) -> Dict[str,str]:
         return {"response":"No action taken"}
 
     logger.info(f"Processing file: {file_path}")
-    dataset_name,table_name,_ = file_path.split("/")
     project = get_project()
 
     try:
@@ -38,9 +39,10 @@ def main(cloud_event:CloudEvent) -> Dict[str,str]:
         return {"response":"No action taken"}
     
     datetime_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    job_id = str(uuid.uuid4())
     logger.info(f"Current datetime: {datetime_str}")
     data = download_file(bucket_name=bucket_name, file_path=file_path)
-    updated_data = list(map(lambda d: {**d, "last_update":datetime_str}, data))
+    updated_data = list(map(lambda d: {**d, "last_update":datetime_str, "job_id":job_id, "file_path":file_path}, data))
 
     destination_table = f"{project}.{dataset_name}.{table_name}"
     delta_table = f"{destination_table}_{CONFIG.delta_suffix}"
@@ -52,7 +54,7 @@ def main(cloud_event:CloudEvent) -> Dict[str,str]:
         return {"response":"An error occurred"}
     
     try:
-        move_delta_to_table(delta=delta_table, datetime_str=datetime_str, table=destination_table)
+        move_delta_to_table(delta=delta_table, datetime_str=datetime_str, job_id=job_id, table=destination_table)
     except Exception as e:
         logger.error(e)
         return {"response":"An error occurred"}

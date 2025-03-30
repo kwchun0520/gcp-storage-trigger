@@ -17,9 +17,11 @@ def download_file(bucket_name:str, file_path:str, file_object:any=io.BytesIO()) 
     Returns:
         List[dict]: The data in the file
     """
-    blob = storage.Client().bucket(bucket_name).blob(file_path)
-    blob.download_to_file(file_object)
-    file_object.seek(0)
-    reader = csv.DictReader(io.TextIOWrapper(file_object))
-    data = list(reader)
+    with io.BytesIO() as file_object:
+        blob = storage.Client().bucket(bucket_name).blob(file_path)
+        blob.download_to_file(file_object)
+        file_object.seek(0)
+        reader = csv.DictReader(io.TextIOWrapper(file_object))
+        data = list(reader)
+        
     return data

@@ -41,7 +41,7 @@ def write_to_table(data: list[dict], table: str) -> None:
     return None
 
 
-def move_delta_to_table(delta:str ,datetime_str:str, table:str) -> None:
+def move_delta_to_table(delta:str ,datetime_str:str, job_id:str, table:str) -> None:
     """Ingest data from a delta table to a main table
 
     Args:
@@ -52,8 +52,9 @@ def move_delta_to_table(delta:str ,datetime_str:str, table:str) -> None:
     logger.info(f"Ingesting data from {delta} to {table}")
     query = f"""
     INSERT INTO `{table}`
-    SELECT * FROM `{delta}`
+    SELECT * EXCEPT(job_id, file_path) FROM `{delta}`
     WHERE DATETIME(last_update) = DATETIME("{datetime_str}")
+    AND job_id = "{job_id}"
     """
     job = _client().query(query)
     job.result()

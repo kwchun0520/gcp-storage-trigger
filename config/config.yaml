@@ -1,0 +1,4 @@
+tables:
+  - __MY_DATASET.__MY_TABLE_NAME__
+  - __MY_DATASET2.__MY_TABLE_NAME2__
+delta_suffix: delta
